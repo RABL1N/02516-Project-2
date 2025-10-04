@@ -30,7 +30,7 @@ Project2/
 │   └── metadata/         # CSV files for train/val/test splits
 ├── models/               # Saved model weights (created during training)
 ├── logs/                 # Training histories (created during training)
-├── runtime/              # Job output logs (created during training)
+├── output/               # Job output logs (created during training)
 └── plots/                # Generated plots (created during analysis)
 ```
 
@@ -120,10 +120,10 @@ bsub < submit.sh
 bjobs
 
 # Monitor real-time output
-tail -f runtime/training_<JOB_ID>.out
+tail -f output/training_<JOB_ID>.out
 
 # Check for errors
-tail -f runtime/training_<JOB_ID>.err
+tail -f output/training_<JOB_ID>.err
 ```
 
 ### After Training Completes
@@ -132,7 +132,7 @@ tail -f runtime/training_<JOB_ID>.err
 # Copy results back to local machine
 scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/models ./
 scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/logs ./
-scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/runtime ./
+scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/output ./
 
 # Run evaluation locally
 python eval.py

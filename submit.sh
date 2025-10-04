@@ -16,11 +16,11 @@
 
 #BSUB -N
 
-#BSUB -o runtime/training_%J.out
-#BSUB -e runtime/training_%J.err
+#BSUB -o output/training_%J.out
+#BSUB -e output/training_%J.err
 
-# Create runtime directory if it doesn't exist
-mkdir -p runtime
+# Create output directory if it doesn't exist
+mkdir -p output
 
 # Load required modules
 module load python/3.9
