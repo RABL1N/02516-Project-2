@@ -1,7 +1,0 @@
-Model,Test Accuracy,Best Val Accuracy,Best Epoch,Final Train Acc,Final Val Acc
-PerFrame2D,24.17%,17.50%,6,21.20%,15.83%
-LateFusion2D,80.83%,74.17%,10,74.20%,74.17%
-EarlyFusion2D,35.00%,39.17%,9,32.40%,32.50%
-PerFrame3D,21.67%,25.00%,5,22.20%,18.33%
-LateFusion3D,30.00%,28.33%,10,29.40%,28.33%
-EarlyFusion3D,25.83%,27.50%,9,25.60%,25.00%

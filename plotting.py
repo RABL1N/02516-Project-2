@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-def load_training_history(model_name, checkpoints_dir="checkpoints"):
+def load_training_history(model_name, logs_dir="logs"):
     """Load training history from JSON file"""
-    history_file = os.path.join(checkpoints_dir, f"{model_name}_training_history.json")
+    history_file = os.path.join(logs_dir, f"{model_name}_training_history.json")
     
     if not os.path.exists(history_file):
         print(f"Warning: {history_file} not found")
@@ -22,6 +22,25 @@ def load_training_history(model_name, checkpoints_dir="checkpoints"):
         history = json.load(f)
     
     return history
+
+def load_test_results():
+    """Load test results from JSON file"""
+    test_results_file = 'test_results.json'
+    
+    if not os.path.exists(test_results_file):
+        print(f"Warning: Test results file not found: {test_results_file}")
+        print("Run 'python eval.py' first to generate test results")
+        return {}
+    
+    with open(test_results_file, 'r') as f:
+        test_results = json.load(f)
+    
+    # Extract just the accuracy values
+    final_results = {}
+    for model_name, results in test_results.items():
+        final_results[model_name] = results['accuracy']
+    
+    return final_results
 
 def plot_training_curves(histories, save_dir="plots"):
     """Plot training and validation curves for all models"""
@@ -80,6 +99,7 @@ def plot_training_curves(histories, save_dir="plots"):
     ax3.set_title('Training Accuracy', fontweight='bold')
     ax3.set_xlabel('Epoch')
     ax3.set_ylabel('Accuracy (%)')
+    ax3.set_ylim(0, 100)
     ax3.legend()
     ax3.grid(True, alpha=0.3)
     
@@ -95,6 +115,7 @@ def plot_training_curves(histories, save_dir="plots"):
     ax4.set_title('Validation Accuracy', fontweight='bold')
     ax4.set_xlabel('Epoch')
     ax4.set_ylabel('Accuracy (%)')
+    ax4.set_ylim(0, 100)
     ax4.legend()
     ax4.grid(True, alpha=0.3)
     
@@ -105,21 +126,18 @@ def plot_training_curves(histories, save_dir="plots"):
     print(f"Training curves saved to {save_dir}/training_curves.png")
 
 def plot_final_results(histories, save_dir="plots"):
-    """Plot final test accuracy comparison"""
+    """Plot test accuracy comparison"""
     
-    # Extract final test accuracies (from the log file or use best validation accuracies)
-    model_names = []
-    test_accuracies = []
+    # Load test results from file
+    final_results = load_test_results()
     
-    # Final results from the training log
-    final_results = {
-        'PerFrame2D': 24.17,
-        'LateFusion2D': 80.83,
-        'EarlyFusion2D': 35.00,
-        'PerFrame3D': 21.67,
-        'LateFusion3D': 30.00,
-        'EarlyFusion3D': 25.83
-    }
+    if not final_results:
+        print("No test results available. Using validation accuracies instead.")
+        # Fallback to validation accuracies if test results not available
+        final_results = {}
+        for model_name, history in histories.items():
+            if history:
+                final_results[model_name] = history['best_val_acc']
     
     # Create bar plot
     plt.figure(figsize=(12, 8))
@@ -142,96 +160,43 @@ def plot_final_results(histories, save_dir="plots"):
     bars[best_idx].set_edgecolor('red')
     bars[best_idx].set_linewidth(3)
     
-    plt.title('Final Test Accuracy Comparison', fontsize=16, fontweight='bold')
+    plt.title('Test Accuracy Comparison', fontsize=16, fontweight='bold')
     plt.xlabel('Model Architecture', fontsize=12)
     plt.ylabel('Test Accuracy (%)', fontsize=12)
     plt.xticks(rotation=45, ha='right')
     plt.grid(True, alpha=0.3, axis='y')
-    plt.ylim(0, 90)
+    plt.ylim(0, 100)
     
-    # Add performance categories
-    plt.axhline(y=70, color='green', linestyle='--', alpha=0.7, label='Excellent (>70%)')
-    plt.axhline(y=50, color='orange', linestyle='--', alpha=0.7, label='Good (>50%)')
-    plt.axhline(y=30, color='red', linestyle='--', alpha=0.7, label='Poor (<30%)')
-    
-    plt.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, 'final_results.png'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(save_dir, 'testing_bars.png'), dpi=300, bbox_inches='tight')
     plt.show()
     
     print(f"Final results plot saved to {save_dir}/final_results.png")
 
-def plot_learning_efficiency(histories, save_dir="plots"):
-    """Plot learning efficiency (how quickly models reach certain accuracy thresholds)"""
+def load_test_results():
+    """Load test results from JSON file"""
+    test_results_file = 'test_results.json'
     
-    plt.figure(figsize=(12, 8))
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+    if not os.path.exists(test_results_file):
+        print(f" Test results file not found: {test_results_file}")
+        print("   Run 'python eval.py' first to generate test results")
+        return {}
     
-    for i, (model_name, history) in enumerate(histories.items()):
-        if history is not None:
-            epochs = range(1, len(history['val_accs']) + 1)
-            plt.plot(epochs, history['val_accs'], 
-                    label=f"{model_name} (Final: {history['val_accs'][-1]:.1f}%)", 
-                    color=colors[i % len(colors)], linewidth=3, marker='o', markersize=6)
+    with open(test_results_file, 'r') as f:
+        test_results = json.load(f)
     
-    plt.title('Learning Efficiency: Validation Accuracy Over Time', fontsize=16, fontweight='bold')
-    plt.xlabel('Epoch', fontsize=12)
-    plt.ylabel('Validation Accuracy (%)', fontsize=12)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, alpha=0.3)
-    plt.ylim(0, 85)
+    # Extract just the accuracy values
+    final_results = {}
+    for model_name, results in test_results.items():
+        final_results[model_name] = results['accuracy']
     
-    # Add threshold lines
-    plt.axhline(y=70, color='green', linestyle='--', alpha=0.7, label='Excellent (70%)')
-    plt.axhline(y=50, color='orange', linestyle='--', alpha=0.7, label='Good (50%)')
-    plt.axhline(y=30, color='red', linestyle='--', alpha=0.7, label='Poor (30%)')
-    
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, 'learning_efficiency.png'), dpi=300, bbox_inches='tight')
-    plt.show()
-    
-    print(f"Learning efficiency plot saved to {save_dir}/learning_efficiency.png")
+    return final_results
 
-def create_summary_table(histories, save_dir="plots"):
-    """Create a summary table of all results"""
-    
-    # Final results
-    final_results = {
-        'PerFrame2D': 24.17,
-        'LateFusion2D': 80.83,
-        'EarlyFusion2D': 35.00,
-        'PerFrame3D': 21.67,
-        'LateFusion3D': 30.00,
-        'EarlyFusion3D': 25.83
-    }
-    
-    # Create summary data
-    summary_data = []
-    for model_name in final_results.keys():
-        history = histories.get(model_name)
-        if history:
-            summary_data.append({
-                'Model': model_name,
-                'Test Accuracy': f"{final_results[model_name]:.2f}%",
-                'Best Val Accuracy': f"{history['best_val_acc']:.2f}%",
-                'Best Epoch': history['best_epoch'] + 1,
-                'Final Train Acc': f"{history['train_accs'][-1]:.2f}%",
-                'Final Val Acc': f"{history['val_accs'][-1]:.2f}%"
-            })
-    
-    # Save as CSV
-    import pandas as pd
-    df = pd.DataFrame(summary_data)
-    df.to_csv(os.path.join(save_dir, 'results_summary.csv'), index=False)
-    
-    print(f"Results summary saved to {save_dir}/results_summary.csv")
-    print("\nResults Summary:")
-    print(df.to_string(index=False))
 
 def main():
     """Main function to generate all plots and analysis"""
     
-    print("🔬 Deep Learning Project 2 - Results Analysis")
+    print("Deep Learning Project 2 - Results Analysis")
     print("=" * 50)
     
     # Define model names
@@ -241,21 +206,29 @@ def main():
     ]
     
     # Load all training histories
-    print("📊 Loading training histories...")
+    print("Loading training histories...")
     histories = {}
     for model_name in model_names:
         history = load_training_history(model_name)
         histories[model_name] = history
         if history:
-            print(f"✅ Loaded {model_name}")
+            print(f"Loaded {model_name}")
         else:
-            print(f"❌ Failed to load {model_name}")
+            print(f"No history found for {model_name}")
+    
+    # Check for test results
+    test_results = load_test_results()
+    if test_results:
+        print(f"Test results loaded: {len(test_results)} models")
+    else:
+        print(f"No test results found. Run 'python eval.py' to generate test results.")
+        print("   Will use validation accuracies as fallback.")
     
     # Create plots directory
     os.makedirs("plots", exist_ok=True)
     
     # Generate all plots
-    print("\n📈 Generating plots...")
+    print("\nGenerating plots...")
     
     print("1. Training curves...")
     plot_training_curves(histories)
@@ -263,18 +236,14 @@ def main():
     print("2. Final results comparison...")
     plot_final_results(histories)
     
-    print("3. Learning efficiency...")
-    plot_learning_efficiency(histories)
+    # Check if test results are available
+    test_results = load_test_results()
+    if test_results:
+        print(f"\nTest results loaded: {len(test_results)} models")
+    else:
+        print(f"\nNo test results found. Run 'python eval.py' to generate test results.")
     
-    print("4. Summary table...")
-    create_summary_table(histories)
-    
-    print("\n🎉 All plots and analysis completed!")
-    print("📁 Check the 'plots' folder for all generated files:")
-    print("   - training_curves.png")
-    print("   - final_results.png") 
-    print("   - learning_efficiency.png")
-    print("   - results_summary.csv")
+    print("\nAll plots and analysis completed!")
 
 if __name__ == "__main__":
     main()

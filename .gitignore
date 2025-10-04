@@ -2,9 +2,8 @@
 ufc10/
 datasets/
 
-# Model weights and checkpoints (very large)
+# Model weights (very large)
 models/*.pth
-checkpoints/*.pth
 *.pth
 
 # Virtual environments
@@ -30,9 +29,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Logs (optional - you might want to keep some)
-logs/*.out
-logs/*.err
+# Runtime logs (optional - you might want to keep some)
+runtime/*.out
+runtime/*.err
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/

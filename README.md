@@ -1,251 +1,160 @@
-# Deep Learning Project 2 - GPU Cluster Training Protocol
+# Deep Learning Project 2 - Video Classification Pipeline
 
-This document outlines the complete protocol for running the deep learning training pipeline on DTU's GPU cluster using LSF (Load Sharing Facility).
+This project implements and compares 6 different fusion models for video classification on the UFC-10 dataset, with proper separation of training, testing, and analysis phases.
 
 ## Project Overview
 
-This project implements and compares 6 different fusion models for video classification on the UFC-10 dataset:
+This project implements and compares 6 different fusion models for video classification:
 
 - **2D Models**: PerFrameAggregation2D, LateFusion2D, EarlyFusion2D
 - **3D Models**: PerFrameAggregation3D, LateFusion3D, EarlyFusion3D
 
-## File Structure
+## Repository Structure
 
 ```
 Project2/
-├── submit.sh              # LSF job submission script
-├── train.py              # Main training script
+├── train.py              # Main training script (trains all models)
+├── eval.py               # Model evaluation script (tests trained models)
+├── plotting.py           # Results analysis and visualization
+├── submit.sh             # LSF job submission script for HPC
+├── models.py             # Model architecture definitions
+├── networks.py           # Core network components
 ├── datasets.py           # Dataset loading utilities
-├── models.py             # Model definitions
-├── networks.py           # Network architectures
 ├── requirements.txt      # Python dependencies
-├── ufc10/                # Dataset directory
+├── .gitignore            # Git ignore rules
+├── README.md             # This file
+├── results.json          # Test results (created during evaluation)
+├── ufc10/                # Dataset directory (not in repo)
 │   ├── frames/           # Extracted video frames
 │   ├── videos/           # Original video files
 │   └── metadata/         # CSV files for train/val/test splits
 ├── models/               # Saved model weights (created during training)
-├── checkpoints/          # Training checkpoints (created during training)
-└── logs/                 # Job output logs (created during training)
+├── logs/                 # Training histories (created during training)
+├── runtime/              # Job output logs (created during training)
+└── plots/                # Generated plots (created during analysis)
 ```
 
-## Prerequisites
+## Workflow Overview
 
-- Access to DTU's GPU cluster
-- Basic familiarity with LSF job submission
-- Python 3.9+ environment
+The project follows a **3-phase workflow** with proper separation of concerns:
 
-## GPU Cluster Setup
+### Phase 1: Training (`train.py`)
 
-### Available GPU Queues
+- **Purpose**: Train all 6 models on the dataset
+- **Output**: Model weights saved to `models/` directory
+- **Best Practice**: Saves best weights based on validation accuracy
+- **No test evaluation**: Test set remains truly unseen
 
-Based on DTU's LSF10 setup, the following GPU queues are available:
+### Phase 2: Evaluation (`eval.py`)
 
-| Queue Name | GPU Type | Memory | Nodes | Recommended For |
-|------------|----------|--------|-------|------------------|
-| `gpuv100`  | Tesla V100 16GB/32GB | 16-32GB | 14 nodes | **Recommended** - Good balance |
-| `gpua100`  | Tesla A100 40GB/80GB | 40-80GB | 10 nodes | Large models, high memory needs |
-| `gpul40s`  | L40s 48GB | 48GB | 6 nodes | High memory requirements |
-| `gpua10`   | Tesla A10 24GB | 24GB | 1 node | Medium models |
-| `gpua40`   | Tesla A40 48GB | 48GB | 1 node | High memory, NVLink |
+- **Purpose**: Load trained models and evaluate on test set
+- **Output**: Test results saved to `results.json`
+- **Best Practice**: Single evaluation of test set for final performance
 
-### CUDA Requirements
+### Phase 3: Analysis (`plotting.py`)
 
-- **A100 GPUs**: Require CUDA 11.0 or newer
-- **Other GPUs**: CUDA 11.6 (as specified in script)
+- **Purpose**: Generate visualizations and analysis plots
+- **Output**: Training curves and test accuracy comparisons
+- **Best Practice**: Uses actual test results from evaluation phase
 
-## Job Submission Protocol
+## Script Usage
 
-### 1. Prepare Your Environment
-
-Ensure all files are in the correct directory structure:
-```bash
-# Verify your project structure
-ls -la
-# Should show: submit.sh, train.py, datasets.py, models.py, networks.py, requirements.txt, ufc10/
-```
-
-### 2. Submit the Job
+### 1. Training Phase
 
 ```bash
-# Submit the job to the GPU cluster
+# Option A: Run locally (if you have GPU)
+python train.py
+
+# Option B: Submit to HPC cluster
 bsub < submit.sh
 ```
 
-### 3. Monitor Job Status
+**What happens:**
+
+- Trains all 6 models sequentially
+- Saves best weights to `models/` directory
+- Saves training history to `logs/`
+- **No test evaluation** - test set remains unseen
+
+### 2. Evaluation Phase
+
+```bash
+# Test all trained models on test set
+python eval.py
+```
+
+**What happens:**
+
+- Loads best weights from `models/` directory
+- Evaluates each model on test set
+- Saves results to `results.json`
+- **Single evaluation** - test set used only once
+
+### 3. Analysis Phase
+
+```bash
+# Generate plots and analysis
+python plotting.py
+```
+
+**What happens:**
+
+- Loads training histories from `logs/`
+- Loads test results from `results.json`
+- Generates training curves and test accuracy plots
+- Saves plots to `plots/` directory
+
+## HPC Cluster Usage
+
+### Job Submission
+
+```bash
+# Submit training job to GPU cluster
+bsub < submit.sh
+```
+
+### Monitor Training
 
 ```bash
 # Check job status
 bjobs
 
-# Check specific job details
-bjobs -l <JOB_ID>
-
 # Monitor real-time output
-tail -f logs/training_<JOB_ID>.out
+tail -f runtime/training_<JOB_ID>.out
+
+# Check for errors
+tail -f runtime/training_<JOB_ID>.err
 ```
 
-### 4. Job Management
+### After Training Completes
 
 ```bash
-# Cancel a job
-bkill <JOB_ID>
+# Copy results back to local machine
+scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/models ./
+scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/logs ./
+scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/runtime ./
 
-# Check job history
-bjobs -a
+# Run evaluation locally
+python eval.py
 
-# View job output
-cat logs/training_<JOB_ID>.out
-cat logs/training_<JOB_ID>.err
+# Generate analysis plots
+python plotting.py
 ```
 
-## Script Configuration
+## Output Files
 
-### LSF Directives Explained
+### Training Outputs
 
-The `submit.sh` script contains the following LSF directives:
+- **`models/<MODEL_NAME>_best_weights.pth`**: Best model weights (based on validation accuracy)
+- **`models/<MODEL_NAME>_final_weights.pth`**: Final model weights (after all epochs)
+- **`logs/<MODEL_NAME>_training_history.json`**: Complete training history
 
-```bash
-#BSUB -q gpuv100                    # Queue: Tesla V100 GPUs
-#BSUB -J deep_learning_project2     # Job name
-#BSUB -n 4                          # 4 CPU cores
-#BSUB -gpu "num=1:mode=exclusive_process"  # 1 GPU, exclusive access
-#BSUB -W 4:00                       # 4-hour time limit
-#BSUB -R "rusage[mem=16GB]"         # 16GB system memory
-#BSUB -B                            # Email notification on start
-#BSUB -N                            # Email notification on completion
-#BSUB -o logs/training_%J.out       # Output file
-#BSUB -e logs/training_%J.err        # Error file
-```
+### Evaluation Outputs
 
-### Customization Options
+- **`results.json`**: Test accuracy results for all models
+- **Format**: `{"PerFrame2D": {"accuracy": 85.0, "loss": 0.595}, ...}`
 
-#### Change GPU Queue
-Edit line 3 in `submit.sh`:
-```bash
-#BSUB -q gpua100    # For A100 GPUs (more powerful)
-#BSUB -q gpul40s    # For L40s GPUs (high memory)
-```
+### Analysis Outputs
 
-#### Adjust Resources
-```bash
-#BSUB -W 8:00                       # 8-hour time limit
-#BSUB -R "rusage[mem=32GB]"         # 32GB system memory
-#BSUB -n 8                           # 8 CPU cores
-```
-
-#### Disable Email Notifications
-Comment out these lines:
-```bash
-# #BSUB -B
-# #BSUB -N
-```
-
-## Training Process
-
-### What Happens During Training
-
-1. **Environment Setup**: Python 3.9 and CUDA 11.6 modules are loaded
-2. **Virtual Environment**: Created if it doesn't exist
-3. **Dependencies**: Installed from `requirements.txt`
-4. **Model Training**: All 6 models are trained sequentially:
-   - PerFrameAggregation2D
-   - LateFusion2D
-   - EarlyFusion2D
-   - PerFrameAggregation3D
-   - LateFusion3D
-   - EarlyFusion3D
-
-### Output Files
-
-After training, you'll find:
-
-- **`models/`**: Best model weights for each architecture
-- **`checkpoints/`**: Training checkpoints and history
-- **`logs/`**: Job output and error logs
-
-### Expected Training Time
-
-- **Per model**: ~30-60 minutes (depending on GPU)
-- **Total time**: ~3-6 hours for all 6 models
-- **Recommended time limit**: 4-8 hours
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Out of Memory (OOM)**
-   - Increase memory allocation: `#BSUB -R "rusage[mem=32GB]"`
-   - Use a GPU with more memory: `gpua100` or `gpul40s`
-
-2. **Job Timeout**
-   - Increase time limit: `#BSUB -W 8:00`
-   - Monitor progress and adjust accordingly
-
-3. **Module Loading Issues**
-   - Check available modules: `module avail`
-   - Verify CUDA version compatibility
-
-4. **Dependency Installation Fails**
-   - Check internet connectivity on cluster
-   - Verify `requirements.txt` format
-
-### Debugging Commands
-
-```bash
-# Check available modules
-module avail
-
-# Check GPU availability
-nvidia-smi
-
-# Test Python environment
-python -c "import torch; print(torch.cuda.is_available())"
-
-# Check job resource usage
-bjobs -l <JOB_ID>
-```
-
-## Results Analysis
-
-### Model Performance Comparison
-
-After training completes, check the final results in the output log:
-```
-FINAL RESULTS SUMMARY
-============================================================
-PerFrame2D     :   XX.XX%
-LateFusion2D   :   XX.XX%
-EarlyFusion2D  :   XX.XX%
-PerFrame3D     :   XX.XX%
-LateFusion3D   :   XX.XX%
-EarlyFusion3D  :   XX.XX%
-
-Best performing model: <MODEL_NAME> (XX.XX%)
-```
-
-### Saved Files
-
-- **Best weights**: `models/<MODEL_NAME>_best_weights.pth`
-- **Final weights**: `models/<MODEL_NAME>_final_weights.pth`
-- **Training history**: `checkpoints/<MODEL_NAME>_training_history.json`
-- **Checkpoints**: `checkpoints/<MODEL_NAME>_epoch_*.pth`
-
-## Best Practices
-
-1. **Test Locally First**: Run a quick test on a small subset before submitting to cluster
-2. **Monitor Resources**: Use `bjobs -l` to check resource usage
-3. **Save Checkpoints**: The script automatically saves checkpoints for resuming
-4. **Document Results**: Keep track of which models perform best
-5. **Clean Up**: Remove old logs and checkpoints to save space
-
-## Support
-
-For technical issues with DTU's GPU cluster:
-- Check DTU's HPC documentation
-- Contact DTU Compute support
-- Verify LSF queue availability with `bqueues`
-
-For project-specific issues:
-- Check the training logs in `logs/`
-- Verify dataset structure in `ufc10/`
-- Ensure all Python dependencies are correctly specified
+- **`plots/training_curves.png`**: Training and validation curves for all models
+- **`plots/testing_bars.png`**: Test accuracy comparison bar chart

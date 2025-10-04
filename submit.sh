@@ -16,11 +16,11 @@
 
 #BSUB -N
 
-#BSUB -o logs/training_%J.out
-#BSUB -e logs/training_%J.err
+#BSUB -o runtime/training_%J.out
+#BSUB -e runtime/training_%J.err
 
-# Create logs directory if it doesn't exist
-mkdir -p logs
+# Create runtime directory if it doesn't exist
+mkdir -p runtime
 
 # Load required modules
 module load python/3.9

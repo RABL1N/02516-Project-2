@@ -1,0 +1,26 @@
+{
+  "PerFrame2D": {
+    "accuracy": 85.0,
+    "loss": 0.595477283000946
+  },
+  "LateFusion2D": {
+    "accuracy": 91.66666666666667,
+    "loss": 0.3840204253792763
+  },
+  "EarlyFusion2D": {
+    "accuracy": 75.0,
+    "loss": 1.0127101987600327
+  },
+  "PerFrame3D": {
+    "accuracy": 65.0,
+    "loss": 0.9514078199863434
+  },
+  "LateFusion3D": {
+    "accuracy": 84.16666666666667,
+    "loss": 0.48327140882611275
+  },
+  "EarlyFusion3D": {
+    "accuracy": 85.0,
+    "loss": 0.46712545305490494
+  }
+}

@@ -25,16 +25,14 @@ def create_dataloaders(root_dir='ufc10', batch_size=8):
     # Create datasets
     train_dataset = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames=True)
     val_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames=True)
-    test_dataset = FrameVideoDataset(root_dir=root_dir, split='test', transform=transform, stack_frames=True)
     
     # Create dataloaders
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader
 
-def train_model(model, train_loader, val_loader, num_epochs=10, learning_rate=0.001, model_name="model"):
+def train_model(model, train_loader, val_loader, num_epochs=75, learning_rate=0.001, model_name="model"):
     """Train the model with saving functionality"""
     
     # Create save directories
@@ -126,42 +124,12 @@ def train_model(model, train_loader, val_loader, num_epochs=10, learning_rate=0.
             torch.save(model.state_dict(), f'models/{model_name}_best_weights.pth')
             print(f'New best model saved! (Val Acc: {val_acc:.2f}%)')
         
-        # Save checkpoint (weights + additional info) every epoch
-        checkpoint = {
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'epoch': epoch,
-            'train_loss': train_loss / len(train_loader),
-            'val_loss': val_loss / len(val_loader),
-            'train_acc': train_acc,
-            'val_acc': val_acc,
-            'best_val_acc': best_val_acc,
-            'best_epoch': best_epoch,
-            'learning_rate': learning_rate,
-            'model_name': model_name
-        }
-        torch.save(checkpoint, f'checkpoints/{model_name}_epoch_{epoch+1}.pth')
         
         print('-' * 50)
     
     # Save final model (weights only)
     torch.save(model.state_dict(), f'models/{model_name}_final_weights.pth')
     
-    # Save final checkpoint
-    final_checkpoint = {
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'epoch': num_epochs - 1,
-        'train_losses': train_losses,
-        'val_losses': val_losses,
-        'train_accs': train_accs,
-        'val_accs': val_accs,
-        'best_val_acc': best_val_acc,
-        'best_epoch': best_epoch,
-        'learning_rate': learning_rate,
-        'model_name': model_name
-    }
-    torch.save(final_checkpoint, f'checkpoints/{model_name}_final_checkpoint.pth')
     
     # Save training history as JSON
     training_history = {
@@ -176,36 +144,17 @@ def train_model(model, train_loader, val_loader, num_epochs=10, learning_rate=0.
         'best_epoch': best_epoch
     }
     
-    with open(f'checkpoints/{model_name}_training_history.json', 'w') as f:
+    with open(f'logs/{model_name}_training_history.json', 'w') as f:
         json.dump(training_history, f, indent=2)
     
     print(f"Model saving completed!")
-    print(f"Weights saved to: models/{model_name}_best_weights.pth")
-    print(f"Checkpoints saved to: checkpoints/{model_name}_*.pth")
-    print(f"Training history saved to: checkpoints/{model_name}_training_history.json")
+    print(f"Best weights saved to: models/{model_name}_best_weights.pth")
+    print(f"Final weights saved to: models/{model_name}_final_weights.pth")
+    print(f"Training history saved to: logs/{model_name}_training_history.json")
     print(f"Best validation accuracy: {best_val_acc:.2f}% (epoch {best_epoch + 1})")
     
     return model, training_history
 
-def test_model(model, test_loader):
-    """Test the model"""
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)
-    model.eval()
-    
-    test_correct = 0
-    test_total = 0
-    
-    with torch.no_grad():
-        for frames, labels in test_loader:
-            frames, labels = frames.to(device), labels.to(device)
-            outputs = model(frames)
-            _, predicted = torch.max(outputs.data, 1)
-            test_total += labels.size(0)
-            test_correct += (predicted == labels).sum().item()
-    
-    test_acc = 100 * test_correct / test_total
-    return test_acc
 
 def main():
     """Main function to run training for all models"""
@@ -222,11 +171,9 @@ def main():
     
     # Create dataloaders
     print("Creating dataloaders...")
-    train_loader, val_loader, test_loader = create_dataloaders()
+    train_loader, val_loader = create_dataloaders()
     
-    results = {}
-    
-    # Train and test each model
+    # Train each model
     for model_name, model_class in models.items():
         print(f"\n{'='*60}")
         print(f"Training {model_name}")
@@ -240,23 +187,16 @@ def main():
         print("Starting training...")
         train_model(model, train_loader, val_loader, model_name=model_name)
         
-        # Test model
-        print("Testing model...")
-        test_acc = test_model(model, test_loader)
-        print(f'{model_name} Test Accuracy: {test_acc:.2f}%')
-        
-        results[model_name] = test_acc
+        print(f'{model_name} training completed!')
+        print(f'Best model weights saved to: models/{model_name}_best_weights.pth')
     
-    # Print summary
+    # Training completed
     print(f"\n{'='*60}")
-    print("FINAL RESULTS SUMMARY")
+    print("TRAINING COMPLETED")
     print(f"{'='*60}")
-    for model_name, accuracy in results.items():
-        print(f"{model_name:15}: {accuracy:6.2f}%")
-    
-    # Find best model
-    best_model = max(results, key=results.get)
-    print(f"\nBest performing model: {best_model} ({results[best_model]:.2f}%)")
+    print("All models have been trained and saved.")
+    print("Run 'python eval.py' to evaluate on test set.")
+    print("Run 'python results.py' to generate analysis plots.")
 
 if __name__ == '__main__':
     main()
