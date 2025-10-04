@@ -1,0 +1,42 @@
+# Dataset files (too large for GitHub)
+ufc10/
+datasets/
+
+# Model weights and checkpoints (very large)
+models/*.pth
+checkpoints/*.pth
+*.pth
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs (optional - you might want to keep some)
+logs/*.out
+logs/*.err
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,0 +1,16 @@
+# Core PyTorch dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Data processing and manipulation
+pandas>=1.5.0
+Pillow>=9.0.0
+
+# Plotting and visualization
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Standard library modules (no installation needed)
+# - os
+# - json
+# - glob
