@@ -13,7 +13,7 @@ from models import (
     PerFrameAggregation3D, LateFusion3D, EarlyFusion3D
 )
 
-def create_dataloaders(root_dir='ufc10', batch_size=8):
+def create_dataloaders(root_dir='ucf101_noleakage', batch_size=8, results_dir='without_leakage'):
     """Create dataloaders for train, validation, and test sets"""
     
     # Define transforms
@@ -32,12 +32,12 @@ def create_dataloaders(root_dir='ufc10', batch_size=8):
     
     return train_loader, val_loader
 
-def train_model(model, train_loader, val_loader, num_epochs=75, learning_rate=0.001, model_name="model"):
+def train_model(model, train_loader, val_loader, num_epochs=75, learning_rate=0.001, model_name="model", results_dir='without_leakage'):
     """Train the model with saving functionality"""
     
     # Create save directories
-    os.makedirs('models', exist_ok=True)
-    os.makedirs('checkpoints', exist_ok=True)
+    os.makedirs(f'{results_dir}/models', exist_ok=True)
+    os.makedirs(f'{results_dir}/logs', exist_ok=True)
     
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -121,14 +121,14 @@ def train_model(model, train_loader, val_loader, num_epochs=75, learning_rate=0.
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_epoch = epoch
-            torch.save(model.state_dict(), f'models/{model_name}_best_weights.pth')
+            torch.save(model.state_dict(), f'{results_dir}/models/{model_name}_best_weights.pth')
             print(f'New best model saved! (Val Acc: {val_acc:.2f}%)')
         
         
         print('-' * 50)
     
     # Save final model (weights only)
-    torch.save(model.state_dict(), f'models/{model_name}_final_weights.pth')
+    torch.save(model.state_dict(), f'{results_dir}/models/{model_name}_final_weights.pth')
     
     
     # Save training history as JSON
@@ -144,19 +144,19 @@ def train_model(model, train_loader, val_loader, num_epochs=75, learning_rate=0.
         'best_epoch': best_epoch
     }
     
-    with open(f'logs/{model_name}_training_history.json', 'w') as f:
+    with open(f'{results_dir}/logs/{model_name}_training_history.json', 'w') as f:
         json.dump(training_history, f, indent=2)
     
     print(f"Model saving completed!")
-    print(f"Best weights saved to: models/{model_name}_best_weights.pth")
-    print(f"Final weights saved to: models/{model_name}_final_weights.pth")
-    print(f"Training history saved to: logs/{model_name}_training_history.json")
+    print(f"Best weights saved to: {results_dir}/models/{model_name}_best_weights.pth")
+    print(f"Final weights saved to: {results_dir}/models/{model_name}_final_weights.pth")
+    print(f"Training history saved to: {results_dir}/logs/{model_name}_training_history.json")
     print(f"Best validation accuracy: {best_val_acc:.2f}% (epoch {best_epoch + 1})")
     
     return model, training_history
 
 
-def main():
+def main(dataset_name='ucf101_noleakage', results_dir='without_leakage'):
     """Main function to run training for all models"""
     
     # Define all available models
@@ -171,7 +171,7 @@ def main():
     
     # Create dataloaders
     print("Creating dataloaders...")
-    train_loader, val_loader = create_dataloaders()
+    train_loader, val_loader = create_dataloaders(root_dir=dataset_name, results_dir=results_dir)
     
     # Train each model
     for model_name, model_class in models.items():
@@ -185,10 +185,10 @@ def main():
         
         # Train model
         print("Starting training...")
-        train_model(model, train_loader, val_loader, model_name=model_name)
+        train_model(model, train_loader, val_loader, model_name=model_name, results_dir=results_dir)
         
         print(f'{model_name} training completed!')
-        print(f'Best model weights saved to: models/{model_name}_best_weights.pth')
+        print(f'Best model weights saved to: {results_dir}/models/{model_name}_best_weights.pth')
     
     # Training completed
     print(f"\n{'='*60}")
@@ -196,7 +196,7 @@ def main():
     print(f"{'='*60}")
     print("All models have been trained and saved.")
     print("Run 'python eval.py' to evaluate on test set.")
-    print("Run 'python results.py' to generate analysis plots.")
+    print("Run 'python plotting.py' to generate analysis plots.")
 
 if __name__ == '__main__':
     main()

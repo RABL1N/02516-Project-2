@@ -11,15 +11,14 @@ import os
 from torch.utils.data import DataLoader
 import torchvision.transforms as T
 from datasets import FrameVideoDataset
-from networks import FrameEncoder2D, VideoEncoder3D, Classifier
 from models import (
     PerFrameAggregation2D, LateFusion2D, EarlyFusion2D,
     PerFrameAggregation3D, LateFusion3D, EarlyFusion3D
 )
 
-def load_trained_model(model_name, device):
+def load_trained_model(model_name, device, models_dir="without_leakage/models"):
     """Load the best trained model for a given model name"""
-    model_path = f'models/{model_name}_best_weights.pth'
+    model_path = f'{models_dir}/{model_name}_best_weights.pth'
     
     if not os.path.exists(model_path):
         print(f"Model weights not found: {model_path}")
@@ -86,7 +85,7 @@ def evaluate_model(model, test_loader, device, model_name):
     
     return test_accuracy, avg_test_loss
 
-def main():
+def main(dataset_name='ucf101_noleakage', results_dir='without_leakage'):
     """Main function to test all trained models"""
     print("Model Testing - Test Set Evaluation")
     print("=" * 50)
@@ -105,7 +104,7 @@ def main():
         T.Resize((64, 64)),
         T.ToTensor()
     ])
-    test_dataset = FrameVideoDataset(root_dir='ufc10', split='test', transform=transform, stack_frames=True)
+    test_dataset = FrameVideoDataset(root_dir=dataset_name, split='test', transform=transform, stack_frames=True)
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4)
     print(f"Test dataset loaded: {len(test_dataset)} samples")
     
@@ -124,7 +123,7 @@ def main():
         print(f"\n{'='*20} {model_name} {'='*20}")
         
         # Load model
-        model = load_trained_model(model_name, device)
+        model = load_trained_model(model_name, device, f'{results_dir}/models')
         if model is None:
             print(f"Skipping {model_name} - model not found")
             test_results[model_name] = {'accuracy': 0.0, 'loss': 0.0}
@@ -151,7 +150,7 @@ def main():
     print(f"\n Best Model: {best_model[0]} with {best_model[1]['accuracy']:.2f}% test accuracy")
     
     # Save results to file
-    results_file = 'results.json'
+    results_file = f'{results_dir}/results.json'
     with open(results_file, 'w') as f:
         json.dump(test_results, f, indent=2)
     

@@ -30,7 +30,18 @@ Project2/
 │   └── metadata/         # CSV files for train/val/test splits
 ├── models/               # Saved model weights (created during training)
 ├── logs/                 # Training histories (created during training)
-├── output/               # Job output logs (created during training)
+├── with_leakage/         # Results from contaminated ufc10 dataset
+│   ├── logs/            # Training histories
+│   ├── models/          # Model weights
+│   ├── plots/           # Analysis plots
+│   ├── output/          # Job logs
+│   └── results.json     # Test results
+├── without_leakage/      # Results from clean ucf101_noleakage dataset
+│   ├── logs/            # Training histories
+│   ├── models/          # Model weights
+│   ├── plots/           # Analysis plots
+│   ├── output/          # Job logs
+│   └── results.json     # Test results
 └── plots/                # Generated plots (created during analysis)
 ```
 
@@ -59,6 +70,23 @@ The project follows a **3-phase workflow** with proper separation of concerns:
 
 ## Script Usage
 
+### Complete Workflow with main.py
+
+The `main.py` script orchestrates the entire workflow and can be used with command line arguments:
+
+```bash
+# Run complete workflow on clean dataset (default)
+python main.py
+
+# Run complete workflow on contaminated dataset
+python main.py --dataset ufc10
+
+# Skip specific phases
+python main.py --skip-training    # Skip training, use existing models
+python main.py --skip-eval        # Skip evaluation
+python main.py --skip-plotting    # Skip plotting
+```
+
 ### 1. Training Phase
 
 ```bash
@@ -67,6 +95,9 @@ python train.py
 
 # Option B: Submit to HPC cluster
 bsub < submit.sh
+
+# Option C: Use main.py for complete workflow
+python main.py --dataset ucf101_noleakage
 ```
 
 **What happens:**
@@ -120,19 +151,17 @@ bsub < submit.sh
 bjobs
 
 # Monitor real-time output
-tail -f output/training_<JOB_ID>.out
+tail -f without_leakage/output/training_<JOB_ID>.out
 
 # Check for errors
-tail -f output/training_<JOB_ID>.err
+tail -f without_leakage/output/training_<JOB_ID>.err
 ```
 
 ### After Training Completes
 
 ```bash
 # Copy results back to local machine
-scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/models ./
-scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/logs ./
-scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/output ./
+scp -r s234806@login1.hpc.dtu.dk:~/02516/Project2/without_leakage ./
 
 # Run evaluation locally
 python eval.py

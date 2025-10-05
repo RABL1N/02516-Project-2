@@ -16,11 +16,15 @@
 
 #BSUB -N
 
-#BSUB -o output/training_%J.out
-#BSUB -e output/training_%J.err
+# Set dataset and results directory (can be changed for different experiments)
+DATASET="ucf101_noleakage"
+RESULTS_DIR="without_leakage"
+
+#BSUB -o ${RESULTS_DIR}/output/training_%J.out
+#BSUB -e ${RESULTS_DIR}/output/training_%J.err
 
 # Create output directory if it doesn't exist
-mkdir -p output
+mkdir -p ${RESULTS_DIR}/output
 
 # Load required modules
 module load python/3.9
@@ -39,5 +43,7 @@ source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Run the training script
-python train.py
+# Run the complete workflow
+python train.py ${DATASET} ${RESULTS_DIR}
+python eval.py ${DATASET} ${RESULTS_DIR}
+python plotting.py ${RESULTS_DIR}

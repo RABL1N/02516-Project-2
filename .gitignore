@@ -30,8 +30,10 @@ __pycache__/
 Thumbs.db
 
 # Output logs (optional - you might want to keep some)
-output/*.out
-output/*.err
+with_leakage/output/*.out
+with_leakage/output/*.err
+without_leakage/output/*.out
+without_leakage/output/*.err
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/

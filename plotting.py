@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-def load_training_history(model_name, logs_dir="logs"):
+def load_training_history(model_name, logs_dir="without_leakage/logs"):
     """Load training history from JSON file"""
     history_file = os.path.join(logs_dir, f"{model_name}_training_history.json")
     
@@ -23,9 +23,9 @@ def load_training_history(model_name, logs_dir="logs"):
     
     return history
 
-def load_test_results():
+def load_test_results(results_dir='without_leakage'):
     """Load test results from JSON file"""
-    test_results_file = 'test_results.json'
+    test_results_file = f'{results_dir}/results.json'
     
     if not os.path.exists(test_results_file):
         print(f"Warning: Test results file not found: {test_results_file}")
@@ -42,7 +42,7 @@ def load_test_results():
     
     return final_results
 
-def plot_training_curves(histories, save_dir="plots"):
+def plot_training_curves(histories, save_dir="without_leakage/plots"):
     """Plot training and validation curves for all models"""
     
     # Create plots directory
@@ -125,19 +125,17 @@ def plot_training_curves(histories, save_dir="plots"):
     
     print(f"Training curves saved to {save_dir}/training_curves.png")
 
-def plot_final_results(histories, save_dir="plots"):
+def plot_final_results(histories, save_dir="without_leakage/plots"):
     """Plot test accuracy comparison"""
     
     # Load test results from file
     final_results = load_test_results()
     
     if not final_results:
-        print("No test results available. Using validation accuracies instead.")
-        # Fallback to validation accuracies if test results not available
-        final_results = {}
-        for model_name, history in histories.items():
-            if history:
-                final_results[model_name] = history['best_val_acc']
+        print("ERROR: No test results available.")
+        print("Run 'python eval.py' first to generate test results.")
+        print("Cannot create test accuracy comparison plot without test data.")
+        return
     
     # Create bar plot
     plt.figure(figsize=(12, 8))
@@ -173,9 +171,9 @@ def plot_final_results(histories, save_dir="plots"):
     
     print(f"Final results plot saved to {save_dir}/final_results.png")
 
-def load_test_results():
+def load_test_results(results_dir='without_leakage'):
     """Load test results from JSON file"""
-    test_results_file = 'test_results.json'
+    test_results_file = f'{results_dir}/results.json'
     
     if not os.path.exists(test_results_file):
         print(f" Test results file not found: {test_results_file}")
@@ -193,7 +191,7 @@ def load_test_results():
     return final_results
 
 
-def main():
+def main(results_dir='without_leakage'):
     """Main function to generate all plots and analysis"""
     
     print("Deep Learning Project 2 - Results Analysis")
@@ -209,7 +207,7 @@ def main():
     print("Loading training histories...")
     histories = {}
     for model_name in model_names:
-        history = load_training_history(model_name)
+        history = load_training_history(model_name, f'{results_dir}/logs')
         histories[model_name] = history
         if history:
             print(f"Loaded {model_name}")
@@ -217,7 +215,7 @@ def main():
             print(f"No history found for {model_name}")
     
     # Check for test results
-    test_results = load_test_results()
+    test_results = load_test_results(results_dir)
     if test_results:
         print(f"Test results loaded: {len(test_results)} models")
     else:
@@ -225,25 +223,31 @@ def main():
         print("   Will use validation accuracies as fallback.")
     
     # Create plots directory
-    os.makedirs("plots", exist_ok=True)
+    os.makedirs(f"{results_dir}/plots", exist_ok=True)
     
     # Generate all plots
     print("\nGenerating plots...")
     
     print("1. Training curves...")
-    plot_training_curves(histories)
+    plot_training_curves(histories, f'{results_dir}/plots')
     
     print("2. Final results comparison...")
-    plot_final_results(histories)
+    plot_final_results(histories, f'{results_dir}/plots')
     
     # Check if test results are available
-    test_results = load_test_results()
+    test_results = load_test_results(results_dir)
     if test_results:
         print(f"\nTest results loaded: {len(test_results)} models")
+        print("Generating test accuracy comparison plot...")
     else:
-        print(f"\nNo test results found. Run 'python eval.py' to generate test results.")
+        print(f"\nERROR: No test results found.")
+        print("Run 'python eval.py' to generate test results first.")
+        print("Skipping test accuracy comparison plot.")
     
     print("\nAll plots and analysis completed!")
+    print(f"Check the '{results_dir}/plots' folder for all generated files:")
+    print("   - training_curves.png")
+    print("   - testing_bars.png")
 
 if __name__ == "__main__":
     main()
