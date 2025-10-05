@@ -42,6 +42,45 @@ class FrameEncoder2D(nn.Module):
         features = features.view(features.size(0), -1)  # [batch, 512*4*4]
         return features
 
+class OpticalFlowEncoder2D(nn.Module):
+    """2D CNN encoder for processing optical flow frames"""
+    def __init__(self, input_channels=2):  # 2 channels for optical flow (x, y)
+        super(OpticalFlowEncoder2D, self).__init__()
+        
+        self.encoder = nn.Sequential(
+            # First conv block
+            nn.Conv2d(input_channels, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            
+            # Second conv block
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            
+            # Third conv block
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            
+            # Fourth conv block
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((4, 4))  # Global average pooling
+        )
+        
+        self.feature_dim = 512 * 4 * 4  # 512 * 4 * 4 = 8192
+        
+    def forward(self, x):
+        # x shape: [batch, channels, height, width]
+        features = self.encoder(x)  # [batch, 512, 4, 4]
+        features = features.view(features.size(0), -1)  # [batch, 512*4*4]
+        return features
+
 class VideoEncoder3D(nn.Module):
     """3D CNN encoder for processing video sequences"""
     def __init__(self, input_channels=3):

@@ -1,0 +1,38 @@
+{
+  "PerFrame2D": {
+    "accuracy": 20.0,
+    "loss": 4.0496931076049805
+  },
+  "LateFusion2D": {
+    "accuracy": 25.833333333333332,
+    "loss": 4.369611382484436
+  },
+  "EarlyFusion2D": {
+    "accuracy": 33.333333333333336,
+    "loss": 3.5737187266349792
+  },
+  "PerFrame3D": {
+    "accuracy": 35.0,
+    "loss": 3.4260626435279846
+  },
+  "LateFusion3D": {
+    "accuracy": 23.333333333333332,
+    "loss": 3.530575215816498
+  },
+  "EarlyFusion3D": {
+    "accuracy": 28.333333333333332,
+    "loss": 4.835284113883972
+  },
+  "DualStreamPerFrame2D": {
+    "accuracy": 46.666666666666664,
+    "loss": 2.7716488242149353
+  },
+  "DualStreamLateFusion2D": {
+    "accuracy": 52.5,
+    "loss": 2.7935632169246674
+  },
+  "DualStreamEarlyFusion2D": {
+    "accuracy": 54.166666666666664,
+    "loss": 1.67616306245327
+  }
+}

@@ -7,13 +7,13 @@ from torch.utils.data import DataLoader
 from torchvision import transforms as T
 import os
 import json
-from datasets import FrameImageDataset, FrameVideoDataset
+from datasets import FrameImageDataset, FrameVideoDataset, DualStreamVideoDataset
 from models import (
     PerFrameAggregation2D, LateFusion2D, EarlyFusion2D,
     PerFrameAggregation3D, LateFusion3D, EarlyFusion3D
 )
 
-def create_dataloaders(root_dir='ucf101_noleakage', batch_size=8, results_dir='without_leakage'):
+def create_dataloaders(root_dir='ucf101_noleakage', batch_size=8, results_dir='without_leakage', include_dual_stream=False):
     """Create dataloaders for train, validation, and test sets"""
     
     # Define transforms
@@ -22,9 +22,14 @@ def create_dataloaders(root_dir='ucf101_noleakage', batch_size=8, results_dir='w
         T.ToTensor()
     ])
     
-    # Create datasets
-    train_dataset = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames=True)
-    val_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames=True)
+    if include_dual_stream:
+        # Create dual-stream datasets for RGB + optical flow
+        train_dataset = DualStreamVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames=True)
+        val_dataset = DualStreamVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames=True)
+    else:
+        # Create standard RGB-only datasets
+        train_dataset = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames=True)
+        val_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames=True)
     
     # Create dataloaders
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -70,14 +75,25 @@ def train_model(model, train_loader, val_loader, num_epochs=75, learning_rate=0.
         train_correct = 0
         train_total = 0
         
-        for batch_idx, (frames, labels) in enumerate(train_loader):
-            frames, labels = frames.to(device), labels.to(device)
-            
-            optimizer.zero_grad()
-            outputs = model(frames)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
+        for batch_idx, data in enumerate(train_loader):
+            if len(data) == 3:  # Dual-stream data: (rgb_frames, flow_frames, labels)
+                rgb_frames, flow_frames, labels = data
+                rgb_frames, flow_frames, labels = rgb_frames.to(device), flow_frames.to(device), labels.to(device)
+                
+                optimizer.zero_grad()
+                outputs = model(rgb_frames, flow_frames)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+            else:  # Single-stream data: (frames, labels)
+                frames, labels = data
+                frames, labels = frames.to(device), labels.to(device)
+                
+                optimizer.zero_grad()
+                outputs = model(frames)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
             
             train_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)
@@ -94,11 +110,17 @@ def train_model(model, train_loader, val_loader, num_epochs=75, learning_rate=0.
         val_total = 0
         
         with torch.no_grad():
-            for frames, labels in val_loader:
-                frames, labels = frames.to(device), labels.to(device)
-                outputs = model(frames)
-                loss = criterion(outputs, labels)
+            for data in val_loader:
+                if len(data) == 3:  # Dual-stream data: (rgb_frames, flow_frames, labels)
+                    rgb_frames, flow_frames, labels = data
+                    rgb_frames, flow_frames, labels = rgb_frames.to(device), flow_frames.to(device), labels.to(device)
+                    outputs = model(rgb_frames, flow_frames)
+                else:  # Single-stream data: (frames, labels)
+                    frames, labels = data
+                    frames, labels = frames.to(device), labels.to(device)
+                    outputs = model(frames)
                 
+                loss = criterion(outputs, labels)
                 val_loss += loss.item()
                 _, predicted = torch.max(outputs.data, 1)
                 val_total += labels.size(0)
@@ -156,22 +178,41 @@ def train_model(model, train_loader, val_loader, num_epochs=75, learning_rate=0.
     return model, training_history
 
 
-def main(dataset_name='ucf101_noleakage', results_dir='without_leakage'):
+def main(dataset_name='ucf101_noleakage', results_dir='without_leakage', include_dual_stream=False):
     """Main function to run training for all models"""
     
     # Define all available models
-    models = {
+    models = {}
+    
+    # Add dual-stream models first if enabled
+    if include_dual_stream:
+        from models import DualStreamPerFrame2D, DualStreamLateFusion2D, DualStreamEarlyFusion2D
+        models.update({
+            'DualStreamPerFrame2D': DualStreamPerFrame2D,
+            'DualStreamLateFusion2D': DualStreamLateFusion2D,
+            'DualStreamEarlyFusion2D': DualStreamEarlyFusion2D,
+        })
+    
+    # Add standard models
+    models.update({
         'PerFrame2D': PerFrameAggregation2D,
         'LateFusion2D': LateFusion2D,
         'EarlyFusion2D': EarlyFusion2D,
         'PerFrame3D': PerFrameAggregation3D,
         'LateFusion3D': LateFusion3D,
         'EarlyFusion3D': EarlyFusion3D,
-    }
+    })
     
     # Create dataloaders
     print("Creating dataloaders...")
-    train_loader, val_loader = create_dataloaders(root_dir=dataset_name, results_dir=results_dir)
+    if include_dual_stream:
+        # Create separate dataloaders for original and dual-stream models
+        train_loader_rgb, val_loader_rgb = create_dataloaders(root_dir=dataset_name, results_dir=results_dir, include_dual_stream=False)
+        train_loader_dual, val_loader_dual = create_dataloaders(root_dir=dataset_name, results_dir=results_dir, include_dual_stream=True)
+    else:
+        # Single dataloader for RGB-only models
+        train_loader_rgb, val_loader_rgb = create_dataloaders(root_dir=dataset_name, results_dir=results_dir, include_dual_stream=False)
+        train_loader_dual, val_loader_dual = None, None
     
     # Train each model
     for model_name, model_class in models.items():
@@ -182,6 +223,15 @@ def main(dataset_name='ucf101_noleakage', results_dir='without_leakage'):
         # Create model
         model = model_class(num_classes=10, num_frames=10)
         print(f"Model created with {sum(p.numel() for p in model.parameters())} parameters")
+        
+        # Choose the correct dataloader for this model type
+        if model_name.startswith('DualStream'):
+            if train_loader_dual is None:
+                print(f"Warning: {model_name} is a dual-stream model but dual-stream dataloader is not available. Skipping.")
+                continue
+            train_loader, val_loader = train_loader_dual, val_loader_dual
+        else:
+            train_loader, val_loader = train_loader_rgb, val_loader_rgb
         
         # Train model
         print("Starting training...")

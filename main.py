@@ -17,9 +17,12 @@ import subprocess
 import json
 from pathlib import Path
 
-def create_directories(dataset_type):
+def create_directories(dataset_type, include_dual_stream=False):
     """Create necessary directories for the specified dataset type"""
-    base_dir = f"{dataset_type}_leakage"
+    if include_dual_stream:
+        base_dir = f"{dataset_type}_leakage_all"
+    else:
+        base_dir = f"{dataset_type}_leakage"
     
     directories = [
         f"{base_dir}/logs",
@@ -34,18 +37,20 @@ def create_directories(dataset_type):
     
     return base_dir
 
-def run_training(dataset_name, base_dir):
+def run_training(dataset_name, base_dir, include_dual_stream=False):
     """Run training script with appropriate dataset"""
     print(f"\n{'='*60}")
     print(f"PHASE 1: TRAINING MODELS")
     print(f"Dataset: {dataset_name}")
     print(f"Results will be saved to: {base_dir}/")
+    if include_dual_stream:
+        print("Including dual-stream models (RGB + Optical Flow)")
     print(f"{'='*60}")
     
     # Import and run training
     try:
         from train import main as train_main
-        train_main(dataset_name, base_dir)
+        train_main(dataset_name, base_dir, include_dual_stream)
         print("Training completed successfully!")
         return True
     except Exception as e:
@@ -129,6 +134,8 @@ def main():
                        help='Skip evaluation phase')
     parser.add_argument('--skip-plotting', action='store_true',
                        help='Skip plotting phase')
+    parser.add_argument('--include-dual-stream', action='store_true',
+                       help='Include dual-stream models (RGB + Optical Flow)')
     
     args = parser.parse_args()
     
@@ -140,7 +147,11 @@ def main():
         dataset_type = 'without'
         dataset_description = 'UCF-101 (without information leakage)'
     
-    base_dir = f"{dataset_type}_leakage"
+    # Set base directory based on dual-stream flag
+    if args.include_dual_stream:
+        base_dir = f"{dataset_type}_leakage_all"
+    else:
+        base_dir = f"{dataset_type}_leakage"
     
     print(f"Deep Learning Project 2 - Complete Workflow")
     print(f"Dataset: {dataset_description}")
@@ -152,14 +163,14 @@ def main():
         sys.exit(1)
     
     # Create directories
-    create_directories(dataset_type)
+    create_directories(dataset_type, args.include_dual_stream)
     
     # Track successful phases
     success_phases = []
     
     # Phase 1: Training
     if not args.skip_training:
-        if run_training(args.dataset, base_dir):
+        if run_training(args.dataset, base_dir, args.include_dual_stream):
             success_phases.append("Training")
     else:
         print("Skipping training phase")

@@ -1,5 +1,6 @@
 # Dataset files (too large for GitHub)
 ufc10/
+ucf101_noleakage
 datasets/
 
 # Model weights (very large)

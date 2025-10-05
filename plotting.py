@@ -54,7 +54,8 @@ def plot_training_curves(histories, save_dir="without_leakage/plots"):
     fig.suptitle('Training Curves Comparison', fontsize=16, fontweight='bold')
     
     # Colors for different models
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', 
+              '#17becf', '#bcbd22', '#e377c2']  # Extended colors for dual-stream models
     model_names = list(histories.keys())
     
     # Plot 1: Training Loss
@@ -125,11 +126,11 @@ def plot_training_curves(histories, save_dir="without_leakage/plots"):
     
     print(f"Training curves saved to {save_dir}/training_curves.png")
 
-def plot_final_results(histories, save_dir="without_leakage/plots"):
+def plot_final_results(histories, save_dir="without_leakage/plots", results_dir="without_leakage"):
     """Plot test accuracy comparison"""
     
     # Load test results from file
-    final_results = load_test_results()
+    final_results = load_test_results(results_dir)
     
     if not final_results:
         print("ERROR: No test results available.")
@@ -138,8 +139,9 @@ def plot_final_results(histories, save_dir="without_leakage/plots"):
         return
     
     # Create bar plot
-    plt.figure(figsize=(12, 8))
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+    plt.figure(figsize=(14, 8))
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', 
+              '#17becf', '#bcbd22', '#e377c2']  # Extended colors for dual-stream models
     
     models = list(final_results.keys())
     accuracies = list(final_results.values())
@@ -197,11 +199,25 @@ def main(results_dir='without_leakage'):
     print("Deep Learning Project 2 - Results Analysis")
     print("=" * 50)
     
-    # Define model names
-    model_names = [
+    # Define model names - check if dual-stream models are present
+    base_model_names = [
         'PerFrame2D', 'LateFusion2D', 'EarlyFusion2D',
         'PerFrame3D', 'LateFusion3D', 'EarlyFusion3D'
     ]
+    
+    # Check if dual-stream models exist
+    dual_stream_models = [
+        'DualStreamPerFrame2D', 'DualStreamLateFusion2D', 'DualStreamEarlyFusion2D'
+    ]
+    
+    # Check which models actually have training histories
+    model_names = []
+    for model_name in base_model_names + dual_stream_models:
+        history_file = os.path.join(f'{results_dir}/logs', f"{model_name}_training_history.json")
+        if os.path.exists(history_file):
+            model_names.append(model_name)
+    
+    print(f"Found {len(model_names)} models with training histories: {model_names}")
     
     # Load all training histories
     print("Loading training histories...")
@@ -232,7 +248,7 @@ def main(results_dir='without_leakage'):
     plot_training_curves(histories, f'{results_dir}/plots')
     
     print("2. Final results comparison...")
-    plot_final_results(histories, f'{results_dir}/plots')
+    plot_final_results(histories, f'{results_dir}/plots', results_dir)
     
     # Check if test results are available
     test_results = load_test_results(results_dir)
@@ -250,4 +266,9 @@ def main(results_dir='without_leakage'):
     print("   - testing_bars.png")
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description='Generate plots and analysis')
+    parser.add_argument('--dataset', default='ucf101_noleakage', help='Dataset name')
+    parser.add_argument('--results-dir', default='without_leakage', help='Results directory')
+    args = parser.parse_args()
+    main(results_dir=args.results_dir)

@@ -10,10 +10,11 @@ import json
 import os
 from torch.utils.data import DataLoader
 import torchvision.transforms as T
-from datasets import FrameVideoDataset
+from datasets import FrameVideoDataset, DualStreamVideoDataset
 from models import (
     PerFrameAggregation2D, LateFusion2D, EarlyFusion2D,
-    PerFrameAggregation3D, LateFusion3D, EarlyFusion3D
+    PerFrameAggregation3D, LateFusion3D, EarlyFusion3D,
+    DualStreamPerFrame2D, DualStreamLateFusion2D, DualStreamEarlyFusion2D
 )
 
 def load_trained_model(model_name, device, models_dir="without_leakage/models"):
@@ -37,6 +38,12 @@ def load_trained_model(model_name, device, models_dir="without_leakage/models"):
         model = LateFusion3D(num_classes=10, num_frames=10)
     elif model_name == 'EarlyFusion3D':
         model = EarlyFusion3D(num_classes=10, num_frames=10)
+    elif model_name == 'DualStreamPerFrame2D':
+        model = DualStreamPerFrame2D(num_classes=10, num_frames=10)
+    elif model_name == 'DualStreamLateFusion2D':
+        model = DualStreamLateFusion2D(num_classes=10, num_frames=10)
+    elif model_name == 'DualStreamEarlyFusion2D':
+        model = DualStreamEarlyFusion2D(num_classes=10, num_frames=10)
     else:
         print(f"Unknown model: {model_name}")
         return None
@@ -60,11 +67,25 @@ def evaluate_model(model, test_loader, device, model_name):
     
     print(f"Testing {model_name} on test set...")
     
+    # Check if this is a dual-stream model
+    is_dual_stream = model_name.startswith('DualStream')
+    
     with torch.no_grad():
-        for batch_idx, (frames, labels) in enumerate(test_loader):
-            frames, labels = frames.to(device), labels.to(device)
+        for batch_idx, batch_data in enumerate(test_loader):
+            if is_dual_stream:
+                # Dual-stream models return (rgb_frames, flow_frames, labels)
+                rgb_frames, flow_frames, labels = batch_data
+                rgb_frames = rgb_frames.to(device)
+                flow_frames = flow_frames.to(device)
+                labels = labels.to(device)
+                outputs = model(rgb_frames, flow_frames)
+            else:
+                # Standard single-stream models return (frames, labels)
+                frames, labels = batch_data
+                frames = frames.to(device)
+                labels = labels.to(device)
+                outputs = model(frames)
             
-            outputs = model(frames)
             loss = criterion(outputs, labels)
             
             test_loss += loss.item()
@@ -104,13 +125,38 @@ def main(dataset_name='ucf101_noleakage', results_dir='without_leakage'):
         T.Resize((64, 64)),
         T.ToTensor()
     ])
-    test_dataset = FrameVideoDataset(root_dir=dataset_name, split='test', transform=transform, stack_frames=True)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4)
-    print(f"Test dataset loaded: {len(test_dataset)} samples")
     
-    # Model names to test
-    model_names = ['PerFrame2D', 'LateFusion2D', 'EarlyFusion2D', 
-                   'PerFrame3D', 'LateFusion3D', 'EarlyFusion3D']
+    # Check if we need dual-stream dataset by looking for dual-stream models
+    model_files = [f for f in os.listdir(f'{results_dir}/models') if f.endswith('_best_weights.pth')]
+    has_dual_stream = any('DualStream' in f for f in model_files)
+    
+    # Create datasets for both standard and dual-stream models
+    standard_test_dataset = FrameVideoDataset(root_dir=dataset_name, split='test', transform=transform, stack_frames=True)
+    standard_test_loader = DataLoader(standard_test_dataset, batch_size=32, shuffle=False, num_workers=4)
+    
+    if has_dual_stream:
+        print("Detected dual-stream models, creating dual-stream dataset")
+        dual_stream_test_dataset = DualStreamVideoDataset(root_dir=dataset_name, split='test', transform=transform, stack_frames=True)
+        dual_stream_test_loader = DataLoader(dual_stream_test_dataset, batch_size=32, shuffle=False, num_workers=4)
+        print(f"Dual-stream test dataset loaded: {len(dual_stream_test_dataset)} samples")
+    else:
+        dual_stream_test_loader = None
+    
+    print(f"Standard test dataset loaded: {len(standard_test_dataset)} samples")
+    
+    # Model names to test - include dual-stream models if they exist
+    base_model_names = ['PerFrame2D', 'LateFusion2D', 'EarlyFusion2D', 
+                       'PerFrame3D', 'LateFusion3D', 'EarlyFusion3D']
+    dual_stream_model_names = ['DualStreamPerFrame2D', 'DualStreamLateFusion2D', 'DualStreamEarlyFusion2D']
+    
+    # Check which models actually exist
+    model_names = []
+    for model_name in base_model_names + dual_stream_model_names:
+        model_path = f'{results_dir}/models/{model_name}_best_weights.pth'
+        if os.path.exists(model_path):
+            model_names.append(model_name)
+    
+    print(f"Found {len(model_names)} models to evaluate: {model_names}")
     
     # Results storage
     test_results = {}
@@ -128,6 +174,13 @@ def main(dataset_name='ucf101_noleakage', results_dir='without_leakage'):
             print(f"Skipping {model_name} - model not found")
             test_results[model_name] = {'accuracy': 0.0, 'loss': 0.0}
             continue
+        
+        # Choose the appropriate test loader based on model type
+        is_dual_stream = model_name.startswith('DualStream')
+        if is_dual_stream and dual_stream_test_loader is not None:
+            test_loader = dual_stream_test_loader
+        else:
+            test_loader = standard_test_loader
         
         # Evaluate on test set
         test_acc, test_loss = evaluate_model(model, test_loader, device, model_name)
@@ -158,4 +211,9 @@ def main(dataset_name='ucf101_noleakage', results_dir='without_leakage'):
     print("Model testing completed!")
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description='Evaluate trained models')
+    parser.add_argument('--dataset', default='ucf101_noleakage', help='Dataset name')
+    parser.add_argument('--results-dir', default='without_leakage', help='Results directory')
+    args = parser.parse_args()
+    main(dataset_name=args.dataset, results_dir=args.results_dir)
